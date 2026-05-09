@@ -12,6 +12,15 @@ const majorAllergies = {
   19: ["잣", "tag-nut"],
 };
 
+// [추가] 점수에 따른 한 줄 평 로직
+function getComment(score) {
+  if (score >= 90) return "갓벽한 급식! 오늘 학교 오길 잘했다 😍";
+  if (score >= 70) return "이 정도면 훌륭하죠. 잔반 제로 도전! 😋";
+  if (score >= 50) return "무난무난한 급식이에요. 평범합니다. 🙂";
+  if (score >= 30) return "음.. 조금 아쉬운데요? 다음엔 맛있길.. 😕";
+  return "이건 좀 선 넘었죠.. 매점 가고 싶다 😭";
+}
+
 window.onload = () => {
   document.getElementById("meal-date").value = new Date()
     .toISOString()
@@ -19,8 +28,7 @@ window.onload = () => {
   renderFavorites();
 };
 
-// 1. 학교 검색 (서버 API 경유 없이 NEIS 직접 호출 - 디자인 코드 유지)
-// ※ 만약 CORS 문제 발생 시 `/api/search` 로 변경하세요.
+// 1. 학교 검색
 async function searchSchool() {
   const keyword = document.getElementById("school-input").value.trim();
   if (!keyword) return;
@@ -78,10 +86,11 @@ window.toggleFavorite = function (e, atpt, code, name) {
   const index = favorites.findIndex((f) => f.code === code);
   if (index > -1) {
     favorites.splice(index, 1);
-    e.target.classList.remove("active");
+    // 화면 내의 모든 해당 학교 별표 업데이트
+    document.querySelectorAll(".fav-toggle").forEach(btn => btn.classList.remove("active"));
   } else {
     favorites.push({ atpt, code, name });
-    e.target.classList.add("active");
+    document.querySelectorAll(".fav-toggle").forEach(btn => btn.classList.add("active"));
   }
   localStorage.setItem("fav_schools", JSON.stringify(favorites));
   renderFavorites();
@@ -116,7 +125,14 @@ window.selectSchool = function (atpt, code, name) {
   document.getElementById("favorites-section").style.display = "none";
 
   document.getElementById("header-nav").classList.add("active");
-  document.getElementById("current-school-display").innerText = name;
+  
+  // [수정] 상단 바 학교명 옆에 즐겨찾기 별표 추가
+  const isFav = favorites.some((f) => f.code === code);
+  document.getElementById("current-school-display").innerHTML = `
+    ${name} <span id="header-fav" class="fav-toggle ${isFav ? 'active' : ''}" style="cursor:pointer; margin-left:5px;">★</span>
+  `;
+  
+  document.getElementById("header-fav").onclick = (e) => toggleFavorite(e, atpt, code, name);
   document.getElementById("meal-section").style.display = "block";
 
   fetchMeals();
@@ -129,7 +145,6 @@ async function fetchMeals() {
   container.innerHTML = '<div class="loading">식단표를 가져오는 중...</div>';
 
   try {
-    // [핵심] 평점 데이터를 같이 가져오기 위해 우리가 만든 Render 서버 API를 호출합니다.
     const res = await fetch(
       `/api/meals?atpt=${currentSchool.atpt}&code=${currentSchool.code}&date=${date}`
     );
@@ -140,7 +155,7 @@ async function fetchMeals() {
     if (neisData.mealServiceDietInfo) {
       neisData.mealServiceDietInfo[1].row.forEach((meal) => {
         const mealId = `${meal.SD_SCHUL_CODE}_${meal.MLSV_YMD}_${meal.MMEAL_SC_CODE}`;
-        const rating = ratings[mealId] || { avg: 0, count: 0 };
+        const rating = ratings[mealId] || { avg: 50, count: 0 }; // 기본값 50
         const hasRated = ratedMeals.includes(mealId);
 
         const card = document.createElement("div");
@@ -172,43 +187,48 @@ async function fetchMeals() {
 
         const nutrition = meal.NTR_INFO.replace(/<br\/>/g, "<br>");
 
-        // 디자인 구조 안에 평점 UI 삽입
         card.innerHTML = `
                     <div class="meal-header" onclick="this.parentElement.classList.toggle('open')">
                         <span class="meal-type">${meal.MMEAL_SC_NM}</span>
                         <div style="text-align: right;">
-                            <span style="font-size:11px; color:var(--text-sub)">평점 ${
-                              rating.avg
-                            }% (${rating.count}명)</span><br>
+                            <span style="font-size:11px; color:var(--text-sub)">평점 ${rating.avg}% (${rating.count}명)</span><br>
                             <span style="font-size:12px; color:var(--accent)">정보/평가 ▾</span>
                         </div>
                     </div>
                     <div class="meal-content">
                         <div class="menu-list-container">${menuHtml}</div>
-                        <div class="nutrition-box">
-                            <b style="color:var(--accent)">[영양 및 칼로리]</b><br>
-                            <div style="margin-top:8px; line-height:1.6;">
-                                총 열량: ${meal.CAL_INFO}<br><br>
-                                ${nutrition}
-                            </div>
-                        </div>
                         
                         <div class="rate-box">
                             <b style="color:var(--accent)">[급식 평가하기]</b><br>
                             ${
                               hasRated
-                                ? `<div class="done-text">평가 완료 ✅</div>`
+                                ? `
+                                <div class="done-text">평가 완료 ✅</div>
+                                <div style="text-align:center; font-size:13px; color:var(--text-sub); margin-top:5px;">
+                                    "${getComment(rating.avg)}"
+                                </div>`
                                 : `
                                 <div style="display:flex; justify-content:space-between; margin-top:8px;">
-                                    <span>만족도 선택: <b id="val-${mealId}">50%</b></span>
+                                    <span>만족도: <b id="val-${mealId}">50%</b></span>
+                                    <span id="comm-${mealId}" style="font-size:11px; color:var(--accent)">${getComment(50)}</span>
                                 </div>
                                 <input type="range" id="range-${mealId}" min="0" max="100" step="10" value="50"
-                                    oninput="document.getElementById('val-${mealId}').innerText = this.value + '%'">
+                                    oninput="
+                                        document.getElementById('val-${mealId}').innerText = this.value + '%';
+                                        document.getElementById('comm-${mealId}').innerText = getComment(this.value);
+                                    ">
                                 <button class="submit-btn" onclick="submitRating('${mealId}', '${meal.MLSV_YMD}')">평가 제출하기</button>
                             `
                             }
                         </div>
 
+                        <div class="nutrition-box">
+                            <b style="color:var(--accent)">[영양 및 칼로리]</b><br>
+                            <div style="margin-top:8px; line-height:1.6; font-size: 13px;">
+                                총 열량: ${meal.CAL_INFO}<br><br>
+                                ${nutrition}
+                            </div>
+                        </div>
                     </div>
                 `;
         container.appendChild(card);
@@ -238,7 +258,7 @@ window.submitRating = async function (mealId, mealDate) {
       ratedMeals.push(mealId);
       localStorage.setItem("rated_meals", JSON.stringify(ratedMeals));
       alert("평가가 제출되었습니다!");
-      fetchMeals(); // 화면 갱신해서 변경된 점수 확인
+      fetchMeals(); 
     } else {
       const err = await res.json();
       alert(err.error || "제출에 실패했습니다.");
