@@ -3,7 +3,7 @@ let favorites = JSON.parse(localStorage.getItem("fav_schools") || "[]");
 let ratedMeals = JSON.parse(localStorage.getItem("rated_meals") || "[]");
 
 const majorAllergies = {
-  2: ["유당", "tag-milk"],
+  2: ["우유", "tag-milk"],
   3: ["메밀", "tag-nut"],
   4: ["땅콩", "tag-nut"],
   5: ["대두", "tag-soy"],
@@ -14,11 +14,12 @@ const majorAllergies = {
 
 // [추가] 점수에 따른 한 줄 평 로직
 function getComment(score) {
-  if (score >= 90) return "갓벽한 급식! 오늘 학교 오길 잘했다 😍";
-  if (score >= 70) return "이 정도면 훌륭하죠. 잔반 제로 도전! 😋";
-  if (score >= 50) return "무난무난한 급식이에요. 평범합니다. 🙂";
-  if (score >= 30) return "음.. 조금 아쉬운데요? 다음엔 맛있길.. 😕";
-  return "이건 좀 선 넘었죠.. 매점 가고 싶다 😭";
+  if (score >= 90) return "아 그저 G.O.A.T 이런 급식 또한 영양사 썜의 은혜겠지요";
+  if (score >= 70) return "오 그래도 급식치곤 괜찮은데?";
+  if (score >= 50) return "딱 적당하네 ㅇㅇ 이정도면 먹을만 하지";
+  if (score >= 35) return "약간 애매하긴 한데 못 먹을 정도는 아님";
+  if (score >= 25) return "아... 씁.... 매점 가실?";
+  return "... 나 안먹을래";
 }
 
 window.onload = () => {
